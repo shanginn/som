@@ -1,0 +1,273 @@
+#!/usr/bin/env bash
+
+# Based on Laravel Sail
+
+# Verify operating system is supported...
+case "$(uname -s)" in
+    Linux*)             MACHINE=linux;;
+    Darwin*)            MACHINE=mac;;
+    *)                  MACHINE="UNKNOWN"
+esac
+
+if [ "$MACHINE" == "UNKNOWN" ]; then
+    echo "Unsupported operating system [$(uname -s)]. SOM supports macOS, Linux, and Windows (WSL2)." >&2
+
+    exit 1
+fi
+
+# Determine if stdout is a terminal...
+if test -t 1; then
+    # Determine if colors are supported...
+    ncolors=$(tput colors)
+
+    if test -n "$ncolors" && test "$ncolors" -ge 8; then
+        BOLD="$(tput bold)"
+        YELLOW="$(tput setaf 3)"
+        GREEN="$(tput setaf 2)"
+        NC="$(tput sgr0)"
+    fi
+fi
+
+# Function that prints the available commands...
+function display_help {
+	CLI_NAME="som"
+
+    echo "PHP SOM"
+    echo
+    echo "${YELLOW}Usage:${NC}" >&2
+    echo "  som COMMAND [options] [arguments]"
+    echo
+    echo "Unknown commands are passed to the docker-compose binary."
+    echo
+    echo "${YELLOW}docker compose Commands:${NC}"
+    echo "  ${GREEN}${CLI_NAME} up${NC}        Start the application"
+    echo "  ${GREEN}${CLI_NAME} up -d${NC}     Start the application in the background"
+    echo "  ${GREEN}${CLI_NAME} stop${NC}      Stop the application"
+    echo "  ${GREEN}${CLI_NAME} restart${NC}   Restart the application"
+    echo "  ${GREEN}${CLI_NAME} ps${NC}        Display the status of all containers"
+    echo
+    echo "${YELLOW}Symfony Console Commands:${NC}"
+    echo "  ${GREEN}${CLI_NAME} console ...${NC}          Run a Symfony console command"
+    echo "  ${GREEN}${CLI_NAME} console queue:work${NC}"
+    echo
+    echo "${YELLOW}PHP Commands:${NC}"
+    echo "  ${GREEN}${CLI_NAME} php ...${NC}   Run a snippet of PHP code"
+    echo "  ${GREEN}${CLI_NAME} php -v${NC}"
+    echo
+    echo "${YELLOW}Composer Commands:${NC}"
+    echo "  ${GREEN}${CLI_NAME} composer ...${NC}                   Run a Composer command"
+    echo "  ${GREEN}${CLI_NAME} composer req phpstan/phpstan${NC}"
+    echo "  ${GREEN}${CLI_NAME} run ...                             Run a Composer script (equivalent to \"composer run\")"
+    echo "  ${GREEN}${CLI_NAME} run fix${NC}"
+    echo "  ${YELLOW} Shorthand version is also available. If you have 'jq' installed and"
+    echo "  ${YELLOW} your composer.json has, for example, 'fix' script, you can run:"
+    echo "  ${GREEN}${CLI_NAME} fix${NC}"
+    echo "  ${YELLOW} If composer.json not in the current dir set COMPOSER_JSON_PATH env"
+    echo
+    echo "${YELLOW}Running Tests:${NC}"
+    echo "  ${GREEN}${CLI_NAME} test${NC}          Run the PHPUnit tests via the Artisan test command"
+    echo "  ${GREEN}${CLI_NAME} phpunit ...${NC}   Run PHPUnit"
+    echo "  ${GREEN}${CLI_NAME} pest ...${NC}      Run Pest"
+    echo
+    echo "${YELLOW}Container CLI:${NC}"
+    echo "  ${GREEN}${CLI_NAME} shell${NC}        Start a shell session within the application container"
+    echo "  ${GREEN}${CLI_NAME} bash${NC}         Alias for '${CLI_NAME} shell'"
+    echo "  ${GREEN}${CLI_NAME} root-shell${NC}   Start a root shell session within the application container"
+    echo "  ${GREEN}${CLI_NAME} root-bash${NC}    Alias for '${CLI_NAME} root-shell'"
+    echo "  ${GREEN}${CLI_NAME} TODO: psysh${NC}        Start a new psysh session"
+    echo
+    echo "${YELLOW}Binaries:${NC}"
+    echo "  ${GREEN}${CLI_NAME} bin ...${NC}   Run Composer binary scripts from the vendor/bin directory"
+
+    exit 1
+}
+
+# Proxy the "help" command...
+if [ $# -gt 0 ]; then
+    if [ "$1" == "help" ] || [ "$1" == "-h" ] || [ "$1" == "-help" ] || [ "$1" == "--help" ]; then
+        display_help
+    fi
+else
+    display_help
+fi
+
+# Source the ".env" file so projects environment variables are available...
+if [ -n "$APP_ENV" ] && [ -f ./.env."$APP_ENV" ]; then
+  source ./.env."$APP_ENV";
+elif [ -f ./.env ]; then
+  source ./.env;
+fi
+
+# Define environment variables...
+export HTTP_PORT=${HTTP_PORT:-80}
+export HTTPS_PORT=${HTTPS_PORT:-443}
+export HTTP3_PORT=${HTTP3_PORT:-443}
+export DOCKER_PHP_SERVICE=${DOCKER_PHP_SERVICE:-"php"}
+export DOCKER_DB_SERVICE=${DOCKER_DB_SERVICE:-"database"}
+export DOCKER_WEB_SERVER_SERVICE=${DOCKER_WEB_SERVER_SERVICE:-"caddy"}
+export DB_PORT=${DB_PORT:-5432}
+export USER=${USER:-$UID}
+export GROUP=${GROUP:-$(id -g)}
+
+export DOCKER_COMPOSE_FILES=${DOCKER_COMPOSE_FILES:-""}
+export COMPOSER_JSON_PATH=${COMPOSER_JSON_PATH:-"composer.json"}
+
+# Function that outputs Sail is not running...
+function compose_is_not_running {
+    echo "${BOLD}Docker Compose is not running.${NC}" >&2
+
+    exit 1
+}
+
+# Check if 'docker compose' is installed
+if ! docker compose &> /dev/null; then
+    if ! docker-compose --version &> /dev/null; then
+        echo "${BOLD}${YELLOW}Error: Neither 'docker compose' nor 'docker-compose' is installed on your system.${NC}"
+        echo "${GREEN}Please follow instruction from here: https://docs.docker.com/compose/install/${NC}"
+        exit 1
+    else
+    	echo "${BOLD}${YELLOW}Error: your 'docker-compose' is outdated${NC}"
+		echo "${GREEN}Please follow instruction from here to update: https://docs.docker.com/compose/install/${NC}"
+    fi
+
+    exit 1
+fi
+
+DOCKER_COMPOSE=(docker compose)
+
+if [ -n "$DOCKER_COMPOSE_FILES" ]; then
+    # Convert DOCKER_COMPOSE_FILES to an array...
+    IFS=':' read -ra DOCKER_COMPOSE_FILES <<< "$DOCKER_COMPOSE_FILES"
+
+    for FILE in "${DOCKER_COMPOSE_FILES[@]}"; do
+        if [ -f "$FILE" ]; then
+            DOCKER_COMPOSE+=(-f "$FILE")
+        else
+            echo "${BOLD}Unable to find Docker Compose file: '${FILE}'${NC}" >&2
+
+            exit 1
+        fi
+    done
+fi
+
+EXEC="yes"
+
+if [ -z "$SAIL_SKIP_CHECKS" ]; then
+    # Ensure that Docker is running...
+    if ! docker info > /dev/null 2>&1; then
+        echo "${BOLD}Docker is not running.${NC}" >&2
+
+        exit 1
+    fi
+
+    # Determine if Sail is currently up...
+    if "${DOCKER_COMPOSE[@]}" ps "$DOCKER_PHP_SERVICE" 2>&1 | grep 'Exit\|exited'; then
+        echo "${BOLD}Shutting down old Sail processes...${NC}" >&2
+
+        "${DOCKER_COMPOSE[@]}" down > /dev/null 2>&1
+
+        EXEC="no"
+    elif [ -z "$("${DOCKER_COMPOSE[@]}" ps -q)" ]; then
+        EXEC="no"
+    fi
+fi
+
+handle_exec() {
+	if [ "$EXEC" != "yes" ]; then
+        compose_is_not_running
+    fi
+
+	ARGS+=(exec)
+	[ ! -t 0 ] && ARGS+=(-T)
+	ARGS+=("$DOCKER_PHP_SERVICE" "$@")
+}
+
+ARGS=()
+
+case "$1" in
+    php)
+        shift 1
+        handle_exec "php" "$@"
+        ;;
+
+    bin)
+        shift 1
+        handle_exec  "./vendor/bin/$1" "${@:2}"
+        ;;
+
+    console)
+        shift 1
+        handle_exec  "./bin/console" "$@"
+        ;;
+
+    composer)
+        shift 1
+        handle_exec "composer" "$@"
+        ;;
+
+    run)
+        shift 1
+        handle_exec "composer" "run" "$@"
+        ;;
+
+    artisan|art|a)
+        shift 1
+        handle_exec php artisan "$@"
+        ;;
+
+    test)
+        shift 1
+        handle_exec php vendor/bin/phpunit "$@"
+        ;;
+
+    phpunit)
+        shift 1
+        handle_exec php vendor/bin/phpunit "$@"
+        ;;
+
+    pest)
+        shift 1
+        handle_exec php vendor/bin/pest "$@"
+        ;;
+
+    shell|bash)
+        shift 1
+        # TODO: check if bash is available
+        handle_exec sh "$@"
+        ;;
+
+    root-shell|root-bash)
+        shift 1
+        ARGS+=(exec -u root)
+        [ ! -t 0 ] && ARGS+=(-T)
+        # TODO: check if bash is available
+        ARGS+=("$DOCKER_PHP_SERVICE" sh "$@")
+        ;;
+
+    open)
+    	if [ "$EXEC" != "yes" ]; then
+			compose_is_not_running
+		fi
+
+        open "$APP_URL"
+		exit 0
+        ;;
+
+    *)
+        # Use jq to check if the command is in the scripts section of composer.json
+        # Here we assume that the composer.json file is in the current directory.
+        # Update this to the actual path of your composer.json file if it's different.
+        if command -v jq &> /dev/null && [ -f "$COMPOSER_JSON_PATH" ] && jq -e ".scripts.$1" "$COMPOSER_JSON_PATH" > /dev/null; then
+            handle_exec "composer" "run" "$@"
+        else
+            ARGS+=("$@")
+        fi
+        ;;
+esac
+
+# debug:
+#echo "${DOCKER_COMPOSE[*]}"
+#echo "${ARGS[*]}"
+
+# Run Docker Compose with the defined arguments...
+"${DOCKER_COMPOSE[@]}" "${ARGS[@]}"
