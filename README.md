@@ -1,6 +1,6 @@
 # som
 
-![](logo.png)
+![|200](logo.png)
 
 `som` is a command-line utility for interacting with Symfony applications (now I'm working with [API platform](https://api-platform.com/)) running on Docker Compose. It provides a number of useful commands for managing your application and makes it easy to run Symfony, PHP, Composer and Docker Compose commands without manual docker command hassle.
 
