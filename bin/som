@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Based on Laravel Sail
+# Based on Laravel Docker
 
 # Verify operating system is supported...
 case "$(uname -s)" in
@@ -105,6 +105,7 @@ export HTTP3_PORT=${HTTP3_PORT:-443}
 export DOCKER_PHP_SERVICE=${DOCKER_PHP_SERVICE:-"php"}
 export DOCKER_DB_SERVICE=${DOCKER_DB_SERVICE:-"database"}
 export DOCKER_WEB_SERVER_SERVICE=${DOCKER_WEB_SERVER_SERVICE:-"caddy"}
+export DOCKER_PWA_SERVICE=${DOCKER_PWA_SERVICE:-"pwa"}
 export DB_PORT=${DB_PORT:-5432}
 export USER=${USER:-$UID}
 export GROUP=${GROUP:-$(id -g)}
@@ -112,7 +113,7 @@ export GROUP=${GROUP:-$(id -g)}
 export DOCKER_COMPOSE_FILES=${DOCKER_COMPOSE_FILES:-""}
 export COMPOSER_JSON_PATH=${COMPOSER_JSON_PATH:-"composer.json"}
 
-# Function that outputs Sail is not running...
+# Function that outputs Docker is not running...
 function compose_is_not_running {
     echo "${BOLD}Docker Compose is not running.${NC}" >&2
 
@@ -160,9 +161,9 @@ if [ -z "$SAIL_SKIP_CHECKS" ]; then
         exit 1
     fi
 
-    # Determine if Sail is currently up...
+    # Determine if Docker is currently up...
     if "${DOCKER_COMPOSE[@]}" ps "$DOCKER_PHP_SERVICE" 2>&1 | grep 'Exit\|exited'; then
-        echo "${BOLD}Shutting down old Sail processes...${NC}" >&2
+        echo "${BOLD}Shutting down old Docker processes...${NC}" >&2
 
         "${DOCKER_COMPOSE[@]}" down > /dev/null 2>&1
 
@@ -172,7 +173,10 @@ if [ -z "$SAIL_SKIP_CHECKS" ]; then
     fi
 fi
 
+#handle_exec() {
+# add param service:
 handle_exec() {
+
 	if [ "$EXEC" != "yes" ]; then
         compose_is_not_running
     fi

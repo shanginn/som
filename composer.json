@@ -1,0 +1,15 @@
+{
+    "name": "shanginn/som",
+    "description": "CLI tool to interact with PHP app inside docker compose env",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Nikolai Shangin",
+            "email": "shanginn@gmail.com"
+        }
+    ],
+    "require": {},
+    "bin": [
+        "bin/som"
+    ]
+}
