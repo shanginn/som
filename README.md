@@ -11,8 +11,14 @@ Inspired by Laravel's `sail` tool, `som` aims to provide similar functionality, 
 - jq (optional, for shorthand Composer script commands)
 
 ## Installation
+`composer require --dev shanginn/som`
 
-`som` is a bash script and does not require any specific installation steps. Just clone or download the script from this repository and place it in your project root.
+`som` is a bash and it will be placed inside `vendor/bin` folder.
+You can use it directly from there, but it's recommended to make a symlink:
+
+```bash
+ln -s vendor/bin/som som
+```
 
 ## Usage
 
