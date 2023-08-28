@@ -2,7 +2,7 @@
     "name": "shanginn/som",
     "description": "CLI tool to interact with PHP app inside docker compose env",
     "license": "MIT",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "authors": [
         {
             "name": "Nikolai Shangin",

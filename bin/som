@@ -261,7 +261,7 @@ case "$1" in
         # Use jq to check if the command is in the scripts section of composer.json
         # Here we assume that the composer.json file is in the current directory.
         # Update this to the actual path of your composer.json file if it's different.
-        if command -v jq &> /dev/null && [ -f "$COMPOSER_JSON_PATH" ] && jq -e ".scripts.$1" "$COMPOSER_JSON_PATH" > /dev/null; then
+        if command -v jq &> /dev/null && [ -f "$COMPOSER_JSON_PATH" ] && jq -e ".scripts[\"$1\"]" "$COMPOSER_JSON_PATH" > /dev/null; then
             handle_exec "composer" "run" "$@"
         else
             ARGS+=("$@")
