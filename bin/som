@@ -236,16 +236,26 @@ case "$1" in
 
     shell|bash)
         shift 1
-        # TODO: check if bash is available
-        handle_exec sh "$@"
+        # check if bash is available
+        "${DOCKER_COMPOSE[@]}" exec $DOCKER_PHP_SERVICE bash --version >/dev/null
+        if [ "$?" == 0 ]; then
+            handle_exec bash "$@"
+        else
+            handle_exec sh "$@"
+        fi
         ;;
 
     root-shell|root-bash)
         shift 1
         ARGS+=(exec -u root)
         [ ! -t 0 ] && ARGS+=(-T)
-        # TODO: check if bash is available
-        ARGS+=("$DOCKER_PHP_SERVICE" sh "$@")
+        # check if bash is available
+        "${DOCKER_COMPOSE[@]}" exec $DOCKER_PHP_SERVICE bash --version >/dev/null
+        if [ "$?" == 0 ]; then
+            ARGS+=("$DOCKER_PHP_SERVICE" bash "$@")
+        else
+            ARGS+=("$DOCKER_PHP_SERVICE" sh "$@")
+        fi
         ;;
 
     open)
