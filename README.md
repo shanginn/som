@@ -90,7 +90,7 @@ Environment variables can be defined in your .env file. The following variables 
 - `DB_PORT`: The database port (default: 5432)
 - `USER`: The user ID for the Docker container (default: UID of the current user)
 - `GROUP`: The group ID for the Docker container (default: GID of the current user)
-- `DOCKER_COMPOSE_FILES`: The Docker Compose file paths (separated by a colon if multiple files)
+- `DOCKER_COMPOSE_FILES`: The Docker Compose file paths (separated by a colon if multiple files, ex DOCKER_COMPOSE_FILES="docker-compose.yml:docker-compose.prod.yml")
 - `COMPOSER_JSON_PATH`: The path to the composer.json file (default: "composer.json")
 
 ## Contributing

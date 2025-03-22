@@ -274,4 +274,16 @@ esac
 #echo "${ARGS[*]}"
 
 # Run Docker Compose with the defined arguments...
-"${DOCKER_COMPOSE[@]}" "${ARGS[@]}"
+if ! output=$("${DOCKER_COMPOSE[@]}" "${ARGS[@]}" 2>&1); then
+    # Check if the error message contains "service "php" is not running"
+    if [[ $output == *"service \"$DOCKER_PHP_SERVICE\" is not running"* ]]; then
+        echo "${BOLD}${YELLOW}Error: Service \"$DOCKER_PHP_SERVICE\" is not running.${NC}" >&2
+        echo "${GREEN}This could be because DOCKER_PHP_SERVICE is not set or incorrect.${NC}" >&2
+        echo "${GREEN}Try setting DOCKER_PHP_SERVICE in your .env file or before running the command.${NC}" >&2
+        echo "${GREEN}Current DOCKER_PHP_SERVICE value: ${DOCKER_PHP_SERVICE}${NC}" >&2
+    else
+        # Print the original error output
+        echo "$output"
+    fi
+    exit 1
+fi
