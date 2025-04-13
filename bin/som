@@ -206,7 +206,7 @@ case "$1" in
     shell|bash)
         shift 1
         # TODO: check if bash is available
-        handle_exec sh "$@"
+        handle_exec sh -c "(bash || ash || sh)"
         ;;
 
     root-shell|root-bash)
@@ -214,7 +214,7 @@ case "$1" in
         ARGS+=(exec -u root)
         [ ! -t 0 ] && ARGS+=(-T)
         # TODO: check if bash is available
-        ARGS+=("$DOCKER_PHP_SERVICE" sh "$@")
+        ARGS+=("$DOCKER_PHP_SERVICE" sh -c "(bash || ash || sh)")
         ;;
 
     open)
