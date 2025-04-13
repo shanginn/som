@@ -98,6 +98,10 @@ elif [ -f ./.env ]; then
   source ./.env;
 fi
 
+if [ -z "$DOCKER_PHP_SERVICE" ]; then
+    echo "${BOLD}${YELLOW}Warning: DOCKER_PHP_SERVICE env for default service in docker-compose.yaml is not set. Defaulting to 'php'.${NC}"
+fi
+
 # Define environment variables...
 export HTTP_PORT=${HTTP_PORT:-80}
 export HTTPS_PORT=${HTTPS_PORT:-443}
@@ -113,12 +117,6 @@ export GROUP=${GROUP:-$(id -g)}
 export DOCKER_COMPOSE_FILES=${DOCKER_COMPOSE_FILES:-""}
 export COMPOSER_JSON_PATH=${COMPOSER_JSON_PATH:-"composer.json"}
 
-# Function that outputs Docker is not running...
-function compose_is_not_running {
-    echo "${BOLD}Docker Compose is not running.${NC}" >&2
-
-    exit 1
-}
 
 # Check if 'docker compose' is installed
 if ! docker compose &> /dev/null; then
@@ -151,36 +149,7 @@ if [ -n "$DOCKER_COMPOSE_FILES" ]; then
     done
 fi
 
-EXEC="yes"
-
-if [ -z "$SAIL_SKIP_CHECKS" ]; then
-    # Ensure that Docker is running...
-    if ! docker info > /dev/null 2>&1; then
-        echo "${BOLD}Docker is not running.${NC}" >&2
-
-        exit 1
-    fi
-
-    # Determine if Docker is currently up...
-    if "${DOCKER_COMPOSE[@]}" ps "$DOCKER_PHP_SERVICE" 2>&1 | grep 'Exit\|exited'; then
-        echo "${BOLD}Shutting down old Docker processes...${NC}" >&2
-
-        "${DOCKER_COMPOSE[@]}" down > /dev/null 2>&1
-
-        EXEC="no"
-    elif [ -z "$("${DOCKER_COMPOSE[@]}" ps -q)" ]; then
-        EXEC="no"
-    fi
-fi
-
-#handle_exec() {
-# add param service:
 handle_exec() {
-
-	if [ "$EXEC" != "yes" ]; then
-        compose_is_not_running
-    fi
-
 	ARGS+=(exec)
 	[ ! -t 0 ] && ARGS+=(-T)
 	ARGS+=("$DOCKER_PHP_SERVICE" "$@")
@@ -273,17 +242,4 @@ esac
 #echo "${DOCKER_COMPOSE[*]}"
 #echo "${ARGS[*]}"
 
-# Run Docker Compose with the defined arguments...
-if ! output=$("${DOCKER_COMPOSE[@]}" "${ARGS[@]}" 2>&1); then
-    # Check if the error message contains "service "php" is not running"
-    if [[ $output == *"service \"$DOCKER_PHP_SERVICE\" is not running"* ]]; then
-        echo "${BOLD}${YELLOW}Error: Service \"$DOCKER_PHP_SERVICE\" is not running.${NC}" >&2
-        echo "${GREEN}This could be because DOCKER_PHP_SERVICE is not set or incorrect.${NC}" >&2
-        echo "${GREEN}Try setting DOCKER_PHP_SERVICE in your .env file or before running the command.${NC}" >&2
-        echo "${GREEN}Current DOCKER_PHP_SERVICE value: ${DOCKER_PHP_SERVICE}${NC}" >&2
-    else
-        # Print the original error output
-        echo "$output"
-    fi
-    exit 1
-fi
+exec "${DOCKER_COMPOSE[@]}" "${ARGS[@]}"
